@@ -4,37 +4,99 @@ const Hapi = require('hapi');
 const server = new Hapi.Server();
 const csv = require('csv-parser');
 const fs = require('fs');
-var employees;
+const JWT = require('jsonwebtoken');
+var employees = [];
 
 
 server.connection({ port: 3000, host: 'localhost' });
 
- fs.createReadStream('../hapijs-endpoint-api/data/employees.csv')
+var secret = "my-secret";
+var people = [ // our "users database"
+    {
+        id: 1,
+        name: 'Jen Jones',
+        username: 'jen',
+        password: '123'
+    }
+];
+
+server.register(require('hapi-auth-jwt2'), function (err) {
+
+    if(err){
+        console.log(err);
+    }
+
+    server.auth.strategy('jwt', 'jwt',
+        {
+            key: 'my-secret',
+            validateFunc: (decoded, request, callback) => callback(null, true),
+            verifyOptions: { algorithms: [ 'HS256' ] }
+        }
+    );
+
+    server.auth.default('jwt');
+
+    server.route([
+        {
+            method: "POST", path: "/login", config: { auth: false },
+            handler: function(request, reply) {
+                var payload = JSON.parse(request.payload);
+                var username = payload.username;
+                var password = payload.password;
+                console.log(payload);
+
+                var user = people.filter(p => p.username === username && p.password === password);
+
+                if(user.length !== 0) {
+                    var token = JWT.sign(user[0], secret);
+                    reply({text: token});
+                } else {
+                    reply({text: 'user and password invalid'});
+                }
+            }
+        },
+        {
+            method: "GET", path: "/", config: { auth: false },
+            handler: function(request, reply) {
+                reply({text: 'Welcome'});
+            }
+        },
+        {
+            method: 'GET', path: '/restricted', config: { auth: 'jwt' },
+            handler: function(request, reply) {
+                reply({text: 'You used a Token!'})
+                    .header("Authorization", request.headers.authorization);
+            }
+        },
+        {
+            method: 'GET', path: '/{name}', config: { auth: false },
+            handler: (req, reply) => {
+                var selected = employees.filter(employee => {
+                    return encodeURIComponent(req.params.name) === employee.first_name;
+                });
+                reply(selected);
+            }
+        }
+    ]);
+});
+
+
+fs.createReadStream('data/employees.csv')
         .pipe(csv())
         .on('data', function (data) {
-           employees = data;
-            console.log(employees);
+           employees.push(data);
+            //console.log(employees);
         })
 
 
-server.route({
-    method: 'GET',
-    path: '/',
-    handler: (req, reply) => {
-        reply(employees);
-    }
-});
-
-server.route({
-    method: 'GET',
-    path: '/{name}',
-    handler: (req, reply) => {
-         var selected = employees.filter(employee => {
-             return encodeURIComponent(req.params.name) === exployee.first_name;
-         });
-         reply(selected);
-    }
-});
+//server.route({
+//    method: 'GET',
+//    path: '/',
+//    handler: (req, reply) => {
+//        reply(employees);
+//    }
+//});
+//
 
 server.start((err) => {
     if (err) {
