@@ -10,8 +10,8 @@ var employees = [];
 
 server.connection({ port: 3000, host: 'localhost' });
 
-var secret = "my-secret";
-var people = [ // our "users database"
+var secret = "my-secret-key";
+var people = [
     {
         id: 1,
         name: 'Jen Jones',
@@ -20,15 +20,15 @@ var people = [ // our "users database"
     }
 ];
 
-server.register(require('hapi-auth-jwt2'), function (err) {
+server.register(require('hapi-auth-jwt2'), function (error) {
 
-    if(err){
-        console.log(err);
+    if(error){
+        console.log(error);
     }
 
     server.auth.strategy('jwt', 'jwt',
         {
-            key: 'my-secret',
+            key: 'my-secret-key',
             validateFunc: (decoded, request, callback) => callback(null, true),
             verifyOptions: { algorithms: [ 'HS256' ] }
         }
@@ -43,7 +43,6 @@ server.register(require('hapi-auth-jwt2'), function (err) {
                 var payload = JSON.parse(request.payload);
                 var username = payload.username;
                 var password = payload.password;
-                console.log(payload);
 
                 var user = people.filter(p => p.username === username && p.password === password);
 
@@ -85,22 +84,12 @@ fs.createReadStream('data/employees.csv')
         .pipe(csv())
         .on('data', function (data) {
            employees.push(data);
-            //console.log(employees);
         })
 
 
-//server.route({
-//    method: 'GET',
-//    path: '/',
-//    handler: (req, reply) => {
-//        reply(employees);
-//    }
-//});
-//
-
-server.start((err) => {
-    if (err) {
-        throw err;
+server.start((error) => {
+    if (error) {
+        throw error;
     }
     console.log(`Server running at: ${server.info.uri}`);
 });
